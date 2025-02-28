@@ -1,26 +1,118 @@
 <!DOCTYPE html>
-<html>
-<head>
-    <meta charset='utf-8' />
-    <title>Mapbox GL Map</title>
-    <meta name='viewport' content='initial-scale=1,maximum-scale=1,user-scalable=no' />
-    <script src='https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js'></script>
-    <link href='https://api.tiles.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css' rel='stylesheet' />
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Aircraft Positions on OpenLayers Map</title>
+    <!-- OpenLayers CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v6.14.1/ol.css" />
     <style>
-        body { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden;}
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+      html, body, #map {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
     </style>
-</head>
-<body>
-    <div id='map'></div>
+    <!-- OpenLayers JS -->
+    <script src="https://cdn.jsdelivr.net/npm/ol@v6.14.1/dist/ol.js"></script>
+  </head>
+  <body>
+    <div id="map"></div>
     <script>
-        mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN'; // Replace with your actual token
-        const map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v12', // Replace with your desired style
-            center: [-74.5, 40], // Replace with your desired center
-            zoom: 9 // Replace with your desired zoom
+      // Create an OpenLayers map with an OSM basemap.
+      const map = new ol.Map({
+        target: 'map',
+        layers: [
+          new ol.layer.Tile({
+            source: new ol.source.OSM(),
+          }),
+        ],
+        view: new ol.View({
+          center: ol.proj.fromLonLat([-98.35, 39.5]), // Adjust center as needed.
+          zoom: 4,
+        }),
+      });
+
+      // Function to fetch raw ADS-B data from dump1090-fa.
+      // dump1090-fa typically serves data at: http://localhost:8080/data/aircraft.json
+      async function fetchAircraftData() {
+        try {
+          const response = await fetch('http://localhost:8080/data/aircraft.json');
+          if (!response.ok) {
+            throw new Error('Network response was not ok');
+          }
+          const jsonData = await response.json();
+          // dump1090-fa returns an object with an "aircraft" property (an array of aircraft).
+          return jsonData.aircraft || [];
+        } catch (error) {
+          console.error('Error fetching aircraft data:', error);
+          return [];
+        }
+      }
+
+      // Function to update aircraft markers.
+      function updateAircraftMarkers(aircraftData) {
+        // Remove any existing aircraft layer.
+        map.getLayers().getArray().forEach((layer) => {
+          if (layer.get('name') === 'aircraftLayer') {
+            map.removeLayer(layer);
+          }
         });
+
+        // Create features from the aircraft data.
+        // dump1090-fa typically returns "lat", "lon", "flight", and optionally "hdg" (heading in degrees).
+        const features = aircraftData
+          .map(ac => {
+            if (ac.lat === undefined || ac.lon === undefined) return null;
+            const feature = new ol.Feature({
+              geometry: new ol.geom.Point(ol.proj.fromLonLat([ac.lon, ac.lat])),
+              name: ac.flight || 'Unknown'
+            });
+            // Rotate icon if heading is provided.
+            if (ac.hdg !== undefined) {
+              feature.set('rotation', ac.hdg * Math.PI / 180);
+            } else {
+              feature.set('rotation', 0);
+            }
+            return feature;
+          })
+          .filter(f => f !== null);
+
+        const vectorSource = new ol.source.Vector({
+          features: features,
+        });
+
+        // Plane icon embedded as a data URI.
+        // This sample is a small airplane icon (base64-encoded PNG).
+        const planeIconDataURI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAABlUlEQVR42q2UQU7DMBBF38z5BME0EjZCBjYhB0shFGkAsSpCzEeQTqRGkoYWkEQ0CDAR7OUvsC/98nV/fj2C22J0vOMhYDx8BG6gBdQB7lEMdF9QOS+6ZZSAYYgTSKaQR5H+MY6IYj/WoJNFGmQJKUJuYB7jkXEGAlh6Jc0JXXkgWmMgpQa/H61WlUgw1zJULvwhn8uA0b9Bz2fXwIy6ZLNrBn9wExvwRhsoR6ZpB8gKpiI0tUE65wGlqIFt1J8wR0zLX4BWPoCSwA2c7BgJOpRcgTq/PG+O8hZuG40Q4aOJ6/4NfAt5NtcHZ9/ukAAAAASUVORK5CYII=";
+
+        const vectorLayer = new ol.layer.Vector({
+          source: vectorSource,
+          style: function(feature) {
+            return new ol.style.Style({
+              image: new ol.style.Icon({
+                src: planeIconDataURI,
+                scale: 1, // Adjust scale as needed.
+                rotation: feature.get('rotation') || 0,
+                anchor: [0.5, 0.5],
+              }),
+            });
+          },
+        });
+
+        vectorLayer.set('name', 'aircraftLayer');
+        map.addLayer(vectorLayer);
+      }
+
+      // Function to refresh data and update markers.
+      async function refreshAircraftData() {
+        const aircraftData = await fetchAircraftData();
+        updateAircraftMarkers(aircraftData);
+      }
+
+      // Initial load and then update every 10 seconds.
+      refreshAircraftData();
+      setInterval(refreshAircraftData, 10000);
     </script>
-</body>
+  </body>
 </html>
