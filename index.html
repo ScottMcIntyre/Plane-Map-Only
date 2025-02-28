@@ -1,0 +1,134 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2575.5">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="en"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;meta charset="UTF-8" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;title&gt;Aircraft Positions on OpenLayers Map&lt;/title&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;!-- OpenLayers CSS --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v6.14.1/ol.css" /&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>html, body, #map {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>width: 100%;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>height: 100%;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>margin: 0;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>padding: 0;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;!-- OpenLayers JS --&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;script src="https://cdn.jsdelivr.net/npm/ol@v6.14.1/dist/ol.js"&gt;&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/head&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;body&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;div id="map"&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Create an OpenLayers map with an OSM basemap.</p>
+<p class="p1"><span class="Apple-converted-space">      </span>const map = new ol.Map({</p>
+<p class="p1"><span class="Apple-converted-space">        </span>target: 'map',</p>
+<p class="p1"><span class="Apple-converted-space">        </span>layers: [</p>
+<p class="p1"><span class="Apple-converted-space">          </span>new ol.layer.Tile({</p>
+<p class="p1"><span class="Apple-converted-space">            </span>source: new ol.source.OSM(),</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}),</p>
+<p class="p1"><span class="Apple-converted-space">        </span>],</p>
+<p class="p1"><span class="Apple-converted-space">        </span>view: new ol.View({</p>
+<p class="p1"><span class="Apple-converted-space">          </span>center: ol.proj.fromLonLat([-98.35, 39.5]), // Adjust center as needed.</p>
+<p class="p1"><span class="Apple-converted-space">          </span>zoom: 4,</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}),</p>
+<p class="p1"><span class="Apple-converted-space">      </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Function to fetch raw ADS-B data from dump1090-fa.</p>
+<p class="p1"><span class="Apple-converted-space">      </span>// dump1090-fa typically serves data at: http://localhost:8080/data/aircraft.json</p>
+<p class="p1"><span class="Apple-converted-space">      </span>async function fetchAircraftData() {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>try {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const response = await fetch('http://localhost:8080/data/aircraft.json');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (!response.ok) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>throw new Error('Network response was not ok');</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">          </span>const jsonData = await response.json();</p>
+<p class="p1"><span class="Apple-converted-space">          </span>// dump1090-fa returns an object with an "aircraft" property (an array of aircraft).</p>
+<p class="p1"><span class="Apple-converted-space">          </span>return jsonData.aircraft || [];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>} catch (error) {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>console.error('Error fetching aircraft data:', error);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>return [];</p>
+<p class="p1"><span class="Apple-converted-space">        </span>}</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Function to update aircraft markers.</p>
+<p class="p1"><span class="Apple-converted-space">      </span>function updateAircraftMarkers(aircraftData) {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>// Remove any existing aircraft layer.</p>
+<p class="p1"><span class="Apple-converted-space">        </span>map.getLayers().getArray().forEach((layer) =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">          </span>if (layer.get('name') === 'aircraftLayer') {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>map.removeLayer(layer);</p>
+<p class="p1"><span class="Apple-converted-space">          </span>}</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>// Create features from the aircraft data.</p>
+<p class="p1"><span class="Apple-converted-space">        </span>// dump1090-fa typically returns "lat", "lon", "flight", and optionally "hdg" (heading in degrees).</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const features = aircraftData</p>
+<p class="p1"><span class="Apple-converted-space">          </span>.map(ac =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (ac.lat === undefined || ac.lon === undefined) return null;</p>
+<p class="p1"><span class="Apple-converted-space">            </span>const feature = new ol.Feature({</p>
+<p class="p1"><span class="Apple-converted-space">              </span>geometry: new ol.geom.Point(ol.proj.fromLonLat([ac.lon, ac.lat])),</p>
+<p class="p1"><span class="Apple-converted-space">              </span>name: ac.flight || 'Unknown'</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">            </span>// Rotate icon if heading is provided.</p>
+<p class="p1"><span class="Apple-converted-space">            </span>if (ac.hdg !== undefined) {</p>
+<p class="p1"><span class="Apple-converted-space">              </span>feature.set('rotation', ac.hdg * Math.PI / 180);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>} else {</p>
+<p class="p1"><span class="Apple-converted-space">              </span>feature.set('rotation', 0);</p>
+<p class="p1"><span class="Apple-converted-space">            </span>}</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return feature;</p>
+<p class="p1"><span class="Apple-converted-space">          </span>})</p>
+<p class="p1"><span class="Apple-converted-space">          </span>.filter(f =&gt; f !== null);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>const vectorSource = new ol.source.Vector({</p>
+<p class="p1"><span class="Apple-converted-space">          </span>features: features,</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>// Plane icon embedded as a data URI.</p>
+<p class="p1"><span class="Apple-converted-space">        </span>// This sample is a small airplane icon (base64-encoded PNG).</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const planeIconDataURI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABQAAAAUCAYAAACNiR0NAAAABGdBTUEAALGPC/xhBQAAACBjSFJNAAB6JgAAgIQAAPoAAACA6AAAdTAAAOpgAAA6mAAAF3CculE8AAABlUlEQVR42q2UQU7DMBBF38z5BME0EjZCBjYhB0shFGkAsSpCzEeQTqRGkoYWkEQ0CDAR7OUvsC/98nV/fj2C22J0vOMhYDx8BG6gBdQB7lEMdF9QOS+6ZZSAYYgTSKaQR5H+MY6IYj/WoJNFGmQJKUJuYB7jkXEGAlh6Jc0JXXkgWmMgpQa/H61WlUgw1zJULvwhn8uA0b9Bz2fXwIy6ZLNrBn9wExvwRhsoR6ZpB8gKpiI0tUE65wGlqIFt1J8wR0zLX4BWPoCSwA2c7BgJOpRcgTq/PG+O8hZuG40Q4aOJ6/4NfAt5NtcHZ9/ukAAAAASUVORK5CYII=";</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>const vectorLayer = new ol.layer.Vector({</p>
+<p class="p1"><span class="Apple-converted-space">          </span>source: vectorSource,</p>
+<p class="p1"><span class="Apple-converted-space">          </span>style: function(feature) {</p>
+<p class="p1"><span class="Apple-converted-space">            </span>return new ol.style.Style({</p>
+<p class="p1"><span class="Apple-converted-space">              </span>image: new ol.style.Icon({</p>
+<p class="p1"><span class="Apple-converted-space">                </span>src: planeIconDataURI,</p>
+<p class="p1"><span class="Apple-converted-space">                </span>scale: 1, // Adjust scale as needed.</p>
+<p class="p1"><span class="Apple-converted-space">                </span>rotation: feature.get('rotation') || 0,</p>
+<p class="p1"><span class="Apple-converted-space">                </span>anchor: [0.5, 0.5],</p>
+<p class="p1"><span class="Apple-converted-space">              </span>}),</p>
+<p class="p1"><span class="Apple-converted-space">            </span>});</p>
+<p class="p1"><span class="Apple-converted-space">          </span>},</p>
+<p class="p1"><span class="Apple-converted-space">        </span>});</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">        </span>vectorLayer.set('name', 'aircraftLayer');</p>
+<p class="p1"><span class="Apple-converted-space">        </span>map.addLayer(vectorLayer);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Function to refresh data and update markers.</p>
+<p class="p1"><span class="Apple-converted-space">      </span>async function refreshAircraftData() {</p>
+<p class="p1"><span class="Apple-converted-space">        </span>const aircraftData = await fetchAircraftData();</p>
+<p class="p1"><span class="Apple-converted-space">        </span>updateAircraftMarkers(aircraftData);</p>
+<p class="p1"><span class="Apple-converted-space">      </span>}</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">      </span>// Initial load and then update every 10 seconds.</p>
+<p class="p1"><span class="Apple-converted-space">      </span>refreshAircraftData();</p>
+<p class="p1"><span class="Apple-converted-space">      </span>setInterval(refreshAircraftData, 10000);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>&lt;/script&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
